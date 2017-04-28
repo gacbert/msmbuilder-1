@@ -19,6 +19,7 @@ requirements:
     - cython
     - numpy x.x
     - mdtraj
+    - MDAnalysis
   run:
     - python
     - setuptools
@@ -34,6 +35,7 @@ requirements:
     - pyyaml
     - jinja2
     - fastcluster
+    - MDAnalysis
 
 
 test:

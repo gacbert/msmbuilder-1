@@ -47,6 +47,9 @@ class _KCenters(ClusterMixin, TransformerMixin):
         The generator used to initialize the centers. If an integer is
         given, it fixes the seed. Defaults to the global numpy random
         number generator.
+    weights : array of distance weights for RMSD
+        Note this is only implemented for the metric RMSD but calculates the
+        RMSD using the associated weights
 
     References
     ----------
@@ -71,10 +74,11 @@ class _KCenters(ClusterMixin, TransformerMixin):
         Sum of distances of samples to their closest cluster center.
     """
 
-    def __init__(self, n_clusters=8, metric='euclidean', random_state=None):
+    def __init__(self, n_clusters=8, metric='euclidean', random_state=None, weights=None):
         self.n_clusters = n_clusters
         self.metric = metric
         self.random_state = random_state
+        self.weights = weights
 
     def fit(self, X, y=None):
         if isinstance(X, np.ndarray):
@@ -89,7 +93,7 @@ class _KCenters(ClusterMixin, TransformerMixin):
         cluster_ids_ = []
 
         for i in range(self.n_clusters):
-            d = libdistance.dist(X, X[new_center_index], metric=self.metric)
+            d = libdistance.dist(X, X[new_center_index], metric=self.metric, weights=self.weights)
             mask = (d < self.distances_)
             self.distances_[mask] = d[mask]
             self.labels_[mask] = i

@@ -11,6 +11,10 @@ import mdtraj as md
 from libc.float cimport FLT_MAX
 from libc.string cimport strcmp
 from numpy cimport npy_intp
+import MDAnalysis.analysis.rms
+import uuid
+import MDAnalysis
+import os
 
 __all__ = ['assign_nearest', 'pdist', 'dist']
 
@@ -226,7 +230,7 @@ def pdist(X, const char* metric, npy_intp[::1] X_indices=None):
         raise TypeError('X must be float32 or float64')
 
 
-def dist(X, y, const char* metric, npy_intp[::1] X_indices=None):
+def dist(X, y, const char* metric, npy_intp[::1] X_indices=None, weights=None):
     """dist(X, y, metric, X_indices=None)
 
     Distance from one point to many points.
@@ -253,9 +257,21 @@ def dist(X, y, const char* metric, npy_intp[::1] X_indices=None):
     mdtraj.rmsd
     scipy.spatial.distance.cdist
     """
-    if (isinstance(X, md.Trajectory) and isinstance(y, md.Trajectory) and strcmp(metric, RMSD) == 0):
+    if (isinstance(X, md.Trajectory) and isinstance(y, md.Trajectory) and strcmp(metric, RMSD) == 0 and weights is None):
         return _dist_rmsd(X, y, X_indices)
-
+    elif (isinstance(X, md.Trajectory) and isinstance(y, md.Trajectory) and strcmp(metric, RMSD) == 0 and weights is not None):
+        tmp = uuid.uuid1()
+        xtc_name = tmp+'_.xtc'
+        ref_name = tmp+'_.pdb'
+        X.savextc(xtc_name)
+        y.savepdb(ref_name)
+        X_MDA = MDAnalysis.Universe(ref_name, xtc_name)
+        y_MDA = MDAnalysis.Universe(ref_name)
+        rmsd_obj = MDAnalysis.analysis.rms.rmsd(X_MDA, y_MDA, center=True, superposition=True, weights=weights)
+        rmsd_obj.run()
+        os.remove(xtc_name)
+        os.remove(ref_name)
+        return rmsd_obj.rmsd[:,2]
     if not isinstance(X, np.ndarray) and isinstance(y, np.ndarray):
         raise TypeError()
     if metric not in VECTOR_METRICS:
@@ -313,7 +329,7 @@ def sumdist(X, const char* metric, npy_intp[:, ::1] pair_indices):
 # Private implementation
 #-----------------------------------------------------------------------------
 
-cdef _assign_nearest_rmsd(X, Y, npy_intp[::1] X_indices=None):
+def _assign_nearest_rmsd(X, Y, npy_intp[::1] X_indices=None):
     cdef npy_intp i, j
     assert (X.xyz.ndim == 3) and (Y.xyz.ndim == 3) and \
            (X.xyz.shape[2]) == 3 and (Y.xyz.shape[2] == 3)
